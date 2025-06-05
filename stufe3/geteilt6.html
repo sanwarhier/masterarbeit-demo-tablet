@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Geteilte Kartenansicht mit Marker</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #viewSelector {
+      position: absolute;
+      right: 0;
+      z-index: 4;
+      margin: 10px 0;
+    }
+
+    .view-select {
+      margin: 0 10px;
+    }
+
+    .view-select select {
+      padding: 12px 5px;
+    }
+
+    #splitContainer {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: 80vh;
+    }
+
+    .view-pane {
+      flex: 1;
+      position: relative;
+    }
+
+    #leftPane {
+      flex-grow: 5;
+    }
+
+    #rightPane {
+      flex-grow: 3;
+    }
+
+    .map-view {
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+
+    gmp-map-3d {
+      width: 100%;
+      height: 100%;
+    }
+
+    #search-box {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: white;
+      padding: 6px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    #autocomplete {
+      width: 300px;
+      padding: 6px 10px;
+      font-size: 16px;
+    }
+
+    /* marker stuff */
+    #placeMarkerContainer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 20vh;
+    }
+
+    #placeMarkerBtnContainer {
+      width: 62.5vw;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+    }
+
+    #placeMarkerBtn {
+      margin: 10px;
+      padding: 10px 20px;
+      padding-left: 30px;
+      /*background-color: #0066cc;*/
+      color: rgb(255, 255, 255);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background-image: url(cursor.png);
+      background-position: 3% 50%; 
+      background-size: 25px; 
+      background-repeat: no-repeat;
+      background-color: #0066cc;
+    }
+
+    #placeMarkerBtn.active {
+      background-color: #cc0000;
+    }
+
+    #placeMarkerBtn:disabled {
+      background-color: #aaaaaa;
+    }
+
+    #markerContainer {
+      /*width: 100vw;*/
+      height: 100%;
+      background-color: #f0f0f0;
+      /*border: 2px dashed #aaa;*/
+      position: relative;
+    }
+
+    .marker {
+      /*width: 20px;
+      height: 20px;*/
+      /*background-color: red;
+      border-radius: 50%;*/
+      position: absolute;
+      transform: translate(-50%, -80%);
+      pointer-events: none;
+      z-index: 300;
+      width: 50px;
+      height: 50px;
+      background-image: url(cursor.png);
+      background-size: 50px;
+    }
+
+      #infoOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      /*background-color: rgba(0, 0, 0, 0.5);*/
+      display: none;
+      justify-content: center;
+      align-items: end;
+      z-index: 9999;
+    }
+
+    #infoBox {
+      background-color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    #backBtn {
+      margin-left: 20px;
+      padding: 8px 16px;
+      background-color: crimson;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+    <h1>Suche einen guten Ort für eine Stadt-Terrasse.</h1>
+
+  <div id="splitContainer">
+    <div class="view-pane" id="leftPane">
+      <div id="markerContainer">
+        <div id="search-box">
+          <input id="autocomplete" type="text" placeholder="Adresse suchen..." />
+        </div>
+        <div id="map-left" class="map-view"></div>
+        <div id="pano-left" class="map-view"></div>
+        <gmp-map-3d id="map3d-left" class="map-view" mode="hybrid" tilt="0" heading="0" range="2000"></gmp-map-3d>
+      </div>
+      <div id="infoOverlay">
+        <div id="infoBox">
+          <span>✅ Fertig!</span>
+          <button id="backBtn">Zurück</button>
+        </div>
+      </div>
+    </div>
+    <div class="view-pane" id="rightPane">
+      <div id="viewSelector">
+        <div class="view-select">
+          <select id="rightViewSelect">
+            <option value="street">Street View</option>
+            <option value="3d">3D</option>
+          </select>
+        </div>
+      </div>
+      <div id="map-right" class="map-view"></div>
+      <div id="pano-right" class="map-view"></div>
+      <gmp-map-3d id="map3d-right" class="map-view" mode="hybrid" tilt="0" heading="0" range="2000"></gmp-map-3d>
+    </div>
+  </div>
+  <div id="placeMarkerBtnContainer">
+    <button id="placeMarkerBtn">Hier Markierung malen!</button>
+  </div>
+
+  <!-- Ab HTML <head> und <body> bleibt gleich, NUR das JavaScript im <script> Bereich wurde angepasst -->
+<script>
+  let maps = {};
+  let streetViews = {};
+  let currentPosition = { lat: 51.51496027592097, lng: 7.175739596880455 };
+  let currentZoom = 18;
+  let syncing = false;
+
+  function initAutocomplete() {
+    const input = document.getElementById("autocomplete");
+    const autocomplete = new google.maps.places.Autocomplete(input);
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (!place.geometry || !place.geometry.location) {
+        alert("Ort nicht gefunden");
+        return;
+      }
+      currentPosition = {
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng()
+      };
+      updateAllViews();
+    });
+  }
+
+  function initSplitViews() {
+    ["left", "right"].forEach((side) => {
+      maps[side] = new google.maps.Map(document.getElementById(`map-${side}`), {
+        center: currentPosition,
+        zoom: currentZoom,
+        streetViewControl: false,
+      });
+
+      streetViews[side] = new google.maps.StreetViewPanorama(document.getElementById(`pano-${side}`), {
+        position: currentPosition,
+        pov: { heading: 0, pitch: 0 },
+        visible: false
+      });
+
+      maps[side].setStreetView(streetViews[side]);
+
+      // Zoom- und Center-Synchronisierung
+      maps[side].addListener("zoom_changed", () => {
+        if (syncing) return;
+        syncing = true;
+        currentZoom = maps[side].getZoom();
+        syncOtherSide(side);
+        syncing = false;
+      });
+
+      maps[side].addListener("center_changed", () => {
+        if (syncing) return;
+        syncing = true;
+        currentPosition = maps[side].getCenter().toJSON();
+        syncOtherSide(side);
+        syncing = false;
+      });
+    });
+
+    document.getElementById(`rightViewSelect`).addEventListener("change", () => switchView("right"));
+
+    updateAllViews();
+  }
+
+  function syncOtherSide(changedSide) {
+    const otherSide = changedSide === "left" ? "right" : "left";
+    if (maps[otherSide]) {
+      maps[otherSide].setZoom(currentZoom);
+      maps[otherSide].setCenter(currentPosition);
+    }
+
+    streetViews[otherSide].setPosition(currentPosition);
+
+    const map3d = document.getElementById(`map3d-${otherSide}`);
+    if (map3d) {
+      map3d.setAttribute("center", `${currentPosition.lat},${currentPosition.lng}`);
+      map3d.setAttribute("range", zoomToRange(currentZoom));
+    }
+  }
+
+  function switchView(side) {
+    let view;
+    if (side == "right"){
+      view = document.getElementById(`rightViewSelect`).value;
+    }
+    else {
+      view = "map";
+    }
+
+    hideAllViews(side);
+
+    if (view === "map") {
+      document.getElementById(`map-${side}`).style.display = "block";
+      maps[side].setCenter(currentPosition);
+      maps[side].setZoom(currentZoom);
+    } else if (view === "street") {
+      document.getElementById(`pano-${side}`).style.display = "block";
+      streetViews[side].setPosition(currentPosition);
+      streetViews[side].setVisible(true);
+    } else if (view === "3d") {
+      const map3d = document.getElementById(`map3d-${side}`);
+      map3d.style.display = "block";
+      map3d.setAttribute("center", `${currentPosition.lat},${currentPosition.lng}`);
+      map3d.setAttribute("range", zoomToRange(currentZoom));
+    }
+  }
+
+  function hideAllViews(side) {
+    document.getElementById(`map-${side}`).style.display = "none";
+    document.getElementById(`pano-${side}`).style.display = "none";
+    document.getElementById(`map3d-${side}`).style.display = "none";
+
+    if (streetViews[side]) {
+      streetViews[side].setVisible(false);
+    }
+  }
+
+  function updateAllViews() {
+    ["left", "right"].forEach(side => {
+      maps[side].setCenter(currentPosition);
+      maps[side].setZoom(currentZoom);
+      streetViews[side].setPosition(currentPosition);
+
+      const map3d = document.getElementById(`map3d-${side}`);
+      map3d.setAttribute("center", `${currentPosition.lat},${currentPosition.lng}`);
+      map3d.setAttribute("range", zoomToRange(currentZoom));
+
+      switchView(side);
+    });
+  }
+
+  function zoomToRange(zoom) {
+    return 50 * Math.pow(2, 21 - zoom);
+  }
+
+  function googleMapsLoaded() {
+    initAutocomplete();
+    initSplitViews();
+  }
+
+
+  // marker stuff:
+
+  function blockAllEvents(e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    function enableEventBlocking() {
+      markerContainer.addEventListener('mousedown', blockAllEvents, true);
+      markerContainer.addEventListener('mouseup', blockAllEvents, true);
+      markerContainer.addEventListener('mousemove', blockAllEvents, true);
+      markerContainer.addEventListener('keydown', blockAllEvents, true);
+      markerContainer.addEventListener('keyup', blockAllEvents, true);
+    }
+
+    function disableEventBlocking() {
+      markerContainer.removeEventListener('mousedown', blockAllEvents, true);
+      markerContainer.removeEventListener('mouseup', blockAllEvents, true);
+      markerContainer.removeEventListener('mousemove', blockAllEvents, true);
+      markerContainer.removeEventListener('keydown', blockAllEvents, true);
+      markerContainer.removeEventListener('keyup', blockAllEvents, true);
+    }
+
+    const placeMarkerBtn = document.getElementById('placeMarkerBtn');
+    const markerContainer = document.getElementById('markerContainer');
+    const infoOverlay = document.getElementById('infoOverlay');
+    const backBtn = document.getElementById('backBtn');
+
+    let placingMarker = false;
+
+    placeMarkerBtn.addEventListener('click', () => {
+      placingMarker = true;
+      placeMarkerBtn.classList.add('active');
+      placeMarkerBtn.textContent = "Klicke ins Bild...";
+      placeMarkerBtn.disabled = true;
+      enableEventBlocking();
+    });
+
+    markerContainer.addEventListener('click', (e) => {
+      if (!placingMarker) return;
+
+      e.stopPropagation();
+      e.preventDefault();
+
+      const rect = markerContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const marker = document.createElement('div');
+      marker.className = 'marker';
+      marker.style.left = `${x}px`;
+      marker.style.top = `${y}px`;
+
+      markerContainer.appendChild(marker);
+
+      // Modus deaktivieren
+      placingMarker = false;
+      placeMarkerBtn.classList.remove('active');
+      placeMarkerBtn.textContent = "Hier Markierung malen!";
+
+      infoOverlay.style.display = 'flex';
+
+      disableEventBlocking();
+    });
+
+    backBtn.addEventListener('click', () => {
+      infoOverlay.style.display = 'none';
+      document.getElementsByClassName("marker")[0].remove();
+      placeMarkerBtn.disabled = false;
+    });
+</script>
+
+
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB4iR3o87Mujb-4pzja8S4Pf8WR6ojVU48&v=beta&libraries=places,maps3d"
+    onload="googleMapsLoaded()">
+  </script>
+</body>
+</html>
