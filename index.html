@@ -1,10 +1,85 @@
-<h1>Stufe 1</h1>
-<a href="stufe1/3d.html">3D</a>
-<a href="stufe1/map.html">Karte</a>
-<a href="stufe1/streetview.html">Straßenansicht</a>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Übersicht</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f4f8;
+      margin: 0;
+      padding: 2rem;
+      color: #333;
+    }
 
+    h1 {
+      margin-top: 2rem;
+      color: #2c3e50;
+      border-bottom: 2px solid #ccc;
+      padding-bottom: 0.3rem;
+    }
 
-<a href="stufe2/komplett.html"><h1>Stufe 2</h1></a>
+    .stufe-section {
+      margin-bottom: 2rem;
+    }
 
+    .link-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+      justify-content: center;
+    }
 
-<a href="stufe3/geteilt6.html"><h1>Stufe 3</h1></a>
+    .link-box {
+      background-color: #fff;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      text-decoration: none;
+      color: #2c3e50;
+      font-weight: 500;
+      transition: transform 0.2s, background-color 0.2s;
+    }
+
+    .link-box:hover {
+      background-color: #e0e7ff;
+      transform: translateY(-3px);
+    }
+
+    .full-link {
+      display: block;
+      padding: 1.5rem;
+      margin-top: 1rem;
+      background-color: #d1fae5;
+      color: #065f46;
+      text-align: center;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 1.2rem;
+      font-weight: bold;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+
+    .full-link:hover {
+      background-color: #a7f3d0;
+      transform: scale(1.02);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="stufe-section full-link">
+    Stufe 1
+    <div class="link-container">
+      <a class="link-box" href="stufe1/3d.html">3D</a>
+      <a class="link-box" href="stufe1/map.html">Karte</a>
+      <a class="link-box" href="stufe1/streetview.html">Straßenansicht</a>
+    </div>
+  </div>
+
+  <a class="full-link" href="stufe2/komplett.html">Stufe 2</a>
+  <a class="full-link" href="stufe3/geteilt6.html">Stufe 3</a>
+
+</body>
+</html>
